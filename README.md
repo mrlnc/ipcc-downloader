@@ -97,7 +97,7 @@ Download all files (thousands, might take some time):
 Unzip all bundles:
 ```
 $ cd data
-$ for i in $(ls *.ipcc); do unzip $i $i-dir; done
+$ for i in $(ls *.ipcc); do unzip $i -d $i-dir; done
 ```
 
 Convert all `plist` files:
