@@ -1,20 +1,54 @@
 # Inspect iOS Carrier Profiles (IPCC)
 
-Carrier Profiles configure your smartphone for mobile networks. I'm not sure if Carrier Profiles are just a legacy or are actually required nowadays, since all configuration should be done through the mobile network itself.
+Carrier Profiles configure your iOS smartphone for mobile networks. They control e.g. availability of VoLTE, Cell Broadcasts, and so on.
+
+# tl;dr Download all IPCCs
+
+Download and unzip all files (thousands, might take some time) to `data/`:
+```
+./download_ipccs.py -d
+```
+
+Convert all `plist` files:
+```
+for i in $(find . | grep plist); do plistutil -i $i -o $i.xml; done
+```
 
 You'll find things in there like:
 * enable VoLTE for specific carriers
 * disable some bands (makes sense if your carrier isn't transmitting there)
 * …
 
-Download the *index* here:
+## IPCC files
+
+* IPCC itself is a ZIP archive; simply use `unzip` to extract
+
+Contents (example):
 ```
-wget http://ax.phobos.apple.com.edgesuite.net/WebObjects/MZStore.woa/wa/com.apple.jingle.appserver.client.MZITunesClientCheck/version -I ipcc_index.xml
+.
+└── Payload
+    └── CARRIER.bundle
+        ├── carrier.plist
+        ├── carrier.pri
+        ├── carrier.prl
+        ├── ERI.plist
+        ├── Info.plist
+        ├── version.plist
 ```
+
+* `plist` files can be converted to XML with `plistutil`, or directly use the `plistlib` module in Python
+* `prl` means "Preferred Roaming List"
+* `pri` seems to configure baseband parameters
 
 ## Download Specific IPCC
 
-If you're looking for a specific carrier, just use your favorite editor and search for either carrier name or MCCMNC:
+If you're looking for a specific carrier, download the index here:
+
+```
+wget https://itunes.com/version
+```
+
+Then use your favorite editor and search for either carrier name or MCCMNC:
 ```xml
 <key>26201</key>
 <dict>
@@ -75,32 +109,4 @@ $ plistutil -i Payload/TMobile_Germany.bundle/carrier.plist
                 <integer>62914560</integer>
         </dict>
         <key>StockSymboli</key>
-```
-
-# Download all IPCCs
-
-Download the *index* here:
-```
-wget http://ax.phobos.apple.com.edgesuite.net/WebObjects/MZStore.woa/wa/com.apple.jingle.appserver.client.MZITunesClientCheck/version -I ipcc_index.xml
-```
-
-Extract all URLs to `data/ipcc_urls.txt`:
-```
-./download_ipccs.py -i IPCC_index.xml 
-```
-
-Download all files (thousands, might take some time):
-```
-./download_ipccs.py -i IPCC_index.xml -d
-```
-
-Unzip all bundles:
-```
-$ cd data
-$ for i in $(ls *.ipcc); do unzip $i -d $i-dir; done
-```
-
-Convert all `plist` files:
-```
-for i in $(find . | grep plist); do plistutil -i $i -o $i.xml; done
 ```
