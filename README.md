@@ -1,23 +1,32 @@
-# Inspect iOS Carrier Profiles (IPCC)
+# iOS Carrier Profiles (IPCC)
 
 Carrier Profiles configure your iOS smartphone for mobile networks. They control e.g. availability of VoLTE, Cell Broadcasts, and so on.
 
-# tl;dr Download all IPCCs
+* **Carrier Bundles** configure the iPhone for specific networks.
+* **Country Bundles** apply for a whole country, e.g., for common configuration for EU-ALERT Cell Broadcasts.
+
+Apple distributes the iOS carrier profiles on behalf of the carriers:
+
+* the *iOS system image* includes most profiles, with updates through the usual iOS system update progress.
+* some are pulled from `itunes.com`
+
+I built a little download script to fetch those profiles available online at `itunes.com`.
+
+# Download IPCCs from `itunes.com`
 
 Download and unzip all files (thousands, might take some time) to `data/`:
 ```
 ./download_ipccs.py -d
 ```
 
-Convert all `plist` files:
+Convert all `plist` files to XML:
 ```
 for i in $(find . | grep plist); do plistutil -i $i -o $i.xml; done
 ```
 
-You'll find things in there like:
-* enable VoLTE for specific carriers
-* disable some bands (makes sense if your carrier isn't transmitting there)
-* …
+# IPCC walkthrough
+
+(just my notes on carrier profiles, might be wrong :-))
 
 ## IPCC files
 
