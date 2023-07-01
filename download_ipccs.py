@@ -26,8 +26,8 @@ def download_file(url: str):
     try:
         urllib.request.urlretrieve(url, f"{output_dir}/{filename}")
         return RESULT_SUCCESS
-    except:
-        print(f"Error downloading {url}")
+    except Exception as e:
+        print(f"Error downloading {url}: {e}")
         return RESULT_ERROR
 
 def unzip_file(ipcc_path):
@@ -36,13 +36,16 @@ def unzip_file(ipcc_path):
         # already unzipped, skipping
         return RESULT_FILE_EXISTS
 
-    with zipfile.ZipFile(ipcc_path) as zip:
-        try:
+    try:
+        with zipfile.ZipFile(ipcc_path) as zip:
             zip.extractall(ipcc_dir)
-        except:
-            return RESULT_ERROR
-
-    return RESULT_SUCCESS
+        return RESULT_SUCCESS
+    except zipfile.BadZipFile:
+        print(f"Error unzipping {ipcc_path}: File is not a zip file")
+        return RESULT_ERROR
+    except Exception as e:
+        print(f"Error unzipping {ipcc_path}: {e}")
+        return RESULT_ERROR
 
 def main(args):
     urls = []
