@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 import re
 import os
 from pathlib import Path
@@ -6,6 +6,7 @@ import urllib.request
 import zipfile
 import argparse
 from multiprocessing.pool import ThreadPool
+from tqdm import tqdm
 
 INDEX_URL = "https://itunes.com/version"
 
@@ -25,23 +26,26 @@ def download_file(url: str):
     try:
         urllib.request.urlretrieve(url, f"{output_dir}/{filename}")
         return RESULT_SUCCESS
-    except:
-        print(f"Error downloading {url}")
+    except Exception as e:
+        print(f"Error downloading {url}: {e}")
         return RESULT_ERROR
 
 def unzip_file(ipcc_path):
-        ipcc_dir = f"{ipcc_path}-dir"
-        if Path(ipcc_dir).exists():
-            # already unzipped, skipping
-            return RESULT_FILE_EXISTS
+    ipcc_dir = f"{ipcc_path}-dir"
+    if Path(ipcc_dir).exists():
+        # already unzipped, skipping
+        return RESULT_FILE_EXISTS
 
+    try:
         with zipfile.ZipFile(ipcc_path) as zip:
-            try:
-                zip.extractall(ipcc_dir)
-            except:
-                return RESULT_ERROR
-
+            zip.extractall(ipcc_dir)
         return RESULT_SUCCESS
+    except zipfile.BadZipFile:
+        print(f"Error unzipping {ipcc_path}: File is not a zip file")
+        return RESULT_ERROR
+    except Exception as e:
+        print(f"Error unzipping {ipcc_path}: {e}")
+        return RESULT_ERROR
 
 def main(args):
     urls = []
@@ -87,15 +91,30 @@ def main(args):
 
     print(f"Starting download of {len(urls)} files.")
 
-    pool = ThreadPool(6)
-    results = pool.map(download_file, urls)
-    print(f"{results.count(RESULT_SUCCESS)} files downloaded, {results.count(RESULT_FILE_EXISTS)} already on disk, {results.count(RESULT_ERROR)} errors")
+    with tqdm(total=len(urls), desc="Downloading Files") as pbar:
+        def update_pbar(*args):
+            pbar.update()
+
+        pool = ThreadPool(6)
+        results = pool.imap(download_file, urls)
+        for _ in results:
+            update_pbar()
+
+    print(f"All files downloaded.")
 
     p = Path("data/")
     ipcc_files = list(p.glob('**/*ipcc'))
 
-    results = pool.map(unzip_file, ipcc_files)
-    print(f"{results.count(RESULT_SUCCESS)} files unzipped, {results.count(RESULT_FILE_EXISTS)} already existed, {results.count(RESULT_ERROR)} errors")
+    with tqdm(total=len(ipcc_files), desc="Unzipping Files") as pbar:
+        def update_pbar(*args):
+            pbar.update()
+
+        pool = ThreadPool(6)
+        results = pool.imap(unzip_file, ipcc_files)
+        for _ in results:
+            update_pbar()
+
+    print(f"All files unzipped.")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
