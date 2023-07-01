@@ -1,8 +1,9 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 import re
 import os
 from pathlib import Path
-import urllib.request
+from tqdm import tqdm
+import requests
 import zipfile
 import argparse
 from multiprocessing.pool import ThreadPool
@@ -14,16 +15,24 @@ RESULT_FILE_EXISTS = 1
 RESULT_ERROR = 2
 
 # thread worker function
-def download_file(url: str):
+def download_file(args):
+    url, pbar = args
     output_dir = "data/"
 
     # use file name and parent directory as file name
     filename = "_".join(url.split("/")[-2:])
-    if Path(f"{output_dir}/{filename}").exists():
+    filepath = f"{output_dir}/{filename}"
+    if Path(filepath).exists():
+        pbar.update(1)
         return RESULT_FILE_EXISTS
 
     try:
-        urllib.request.urlretrieve(url, f"{output_dir}/{filename}")
+        response = requests.get(url, stream=True)
+        with open(filepath, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=1024):
+                if chunk: # filter out keep-alive new chunks
+                    f.write(chunk)
+        pbar.update(1)
         return RESULT_SUCCESS
     except:
         print(f"Error downloading {url}")
@@ -47,18 +56,17 @@ def main(args):
     urls = []
     if args.input_file != None:
         print(f"Reading file: {args.input_file}")
-        fh = open(args.input_file, "r")
+        with open(args.input_file, "r") as fh:
+            lines = fh.readlines()
     else:
         print(f"Reading Carrier Bundle index from: {INDEX_URL}")
-        fh = urllib.request.urlopen(INDEX_URL)
+        response = requests.get(INDEX_URL)
+        lines = response.text.splitlines()
 
     # extract URLs from the XML
-    for line in fh.readlines():
-        if type(line) != str:
-            line = line.decode('utf-8')
-
+    for line in lines:
         results = re.findall("(http[s]?://.*\.ipcc)", line)
-        if results == None:
+        if results is None:
             continue
 
         for result in results:
@@ -87,8 +95,9 @@ def main(args):
 
     print(f"Starting download of {len(urls)} files.")
 
-    pool = ThreadPool(6)
-    results = pool.map(download_file, urls)
+    with tqdm(total=len(urls)) as pbar:
+        pool = ThreadPool(6)
+        results = pool.map(download_file, [(url, pbar) for url in urls])
     print(f"{results.count(RESULT_SUCCESS)} files downloaded, {results.count(RESULT_FILE_EXISTS)} already on disk, {results.count(RESULT_ERROR)} errors")
 
     p = Path("data/")
