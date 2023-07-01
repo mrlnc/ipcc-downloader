@@ -2,11 +2,11 @@
 import re
 import os
 from pathlib import Path
-from tqdm import tqdm
-import requests
+import urllib.request
 import zipfile
 import argparse
 from multiprocessing.pool import ThreadPool
+from tqdm import tqdm
 
 INDEX_URL = "https://itunes.com/version"
 
@@ -15,58 +15,51 @@ RESULT_FILE_EXISTS = 1
 RESULT_ERROR = 2
 
 # thread worker function
-def download_file(args):
-    url, pbar = args
+def download_file(url: str):
     output_dir = "data/"
 
     # use file name and parent directory as file name
     filename = "_".join(url.split("/")[-2:])
-    filepath = f"{output_dir}/{filename}"
-    if Path(filepath).exists():
-        pbar.update(1)
+    if Path(f"{output_dir}/{filename}").exists():
         return RESULT_FILE_EXISTS
 
     try:
-        response = requests.get(url, stream=True)
-        with open(filepath, 'wb') as f:
-            for chunk in response.iter_content(chunk_size=1024):
-                if chunk: # filter out keep-alive new chunks
-                    f.write(chunk)
-        pbar.update(1)
+        urllib.request.urlretrieve(url, f"{output_dir}/{filename}")
         return RESULT_SUCCESS
     except:
         print(f"Error downloading {url}")
         return RESULT_ERROR
 
 def unzip_file(ipcc_path):
-        ipcc_dir = f"{ipcc_path}-dir"
-        if Path(ipcc_dir).exists():
-            # already unzipped, skipping
-            return RESULT_FILE_EXISTS
+    ipcc_dir = f"{ipcc_path}-dir"
+    if Path(ipcc_dir).exists():
+        # already unzipped, skipping
+        return RESULT_FILE_EXISTS
 
-        with zipfile.ZipFile(ipcc_path) as zip:
-            try:
-                zip.extractall(ipcc_dir)
-            except:
-                return RESULT_ERROR
+    with zipfile.ZipFile(ipcc_path) as zip:
+        try:
+            zip.extractall(ipcc_dir)
+        except:
+            return RESULT_ERROR
 
-        return RESULT_SUCCESS
+    return RESULT_SUCCESS
 
 def main(args):
     urls = []
     if args.input_file != None:
         print(f"Reading file: {args.input_file}")
-        with open(args.input_file, "r") as fh:
-            lines = fh.readlines()
+        fh = open(args.input_file, "r")
     else:
         print(f"Reading Carrier Bundle index from: {INDEX_URL}")
-        response = requests.get(INDEX_URL)
-        lines = response.text.splitlines()
+        fh = urllib.request.urlopen(INDEX_URL)
 
     # extract URLs from the XML
-    for line in lines:
+    for line in fh.readlines():
+        if type(line) != str:
+            line = line.decode('utf-8')
+
         results = re.findall("(http[s]?://.*\.ipcc)", line)
-        if results is None:
+        if results == None:
             continue
 
         for result in results:
@@ -95,16 +88,30 @@ def main(args):
 
     print(f"Starting download of {len(urls)} files.")
 
-    with tqdm(total=len(urls)) as pbar:
+    with tqdm(total=len(urls), desc="Downloading Files") as pbar:
+        def update_pbar(*args):
+            pbar.update()
+
         pool = ThreadPool(6)
-        results = pool.map(download_file, [(url, pbar) for url in urls])
-    print(f"{results.count(RESULT_SUCCESS)} files downloaded, {results.count(RESULT_FILE_EXISTS)} already on disk, {results.count(RESULT_ERROR)} errors")
+        results = pool.imap(download_file, urls)
+        for _ in results:
+            update_pbar()
+
+    print(f"All files downloaded.")
 
     p = Path("data/")
     ipcc_files = list(p.glob('**/*ipcc'))
 
-    results = pool.map(unzip_file, ipcc_files)
-    print(f"{results.count(RESULT_SUCCESS)} files unzipped, {results.count(RESULT_FILE_EXISTS)} already existed, {results.count(RESULT_ERROR)} errors")
+    with tqdm(total=len(ipcc_files), desc="Unzipping Files") as pbar:
+        def update_pbar(*args):
+            pbar.update()
+
+        pool = ThreadPool(6)
+        results = pool.imap(unzip_file, ipcc_files)
+        for _ in results:
+            update_pbar()
+
+    print(f"All files unzipped.")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
