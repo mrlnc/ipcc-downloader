@@ -1,3 +1,9 @@
+>[!WARNING]
+> **Note:** I'm not sure if iOS actually uses the itunes.com-published IPCC configs (since they are all on the file system anyway).
+>
+> Preserving this repo as written at the time. It will not be updated.
+---
+
 # iOS Carrier Profiles (IPCC)
 
 Carrier Profiles configure your iOS smartphone for mobile networks. They control e.g. availability of VoLTE, Cell Broadcasts, and so on.
